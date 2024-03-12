@@ -1,0 +1,192 @@
+
+# Data Importing
+
+Student_data <- read.csv("C:\\Program Files\\R\\R-3.3.2\\datasets\\student_dropout.csv", header = TRUE)
+print(Student_data)
+
+head(Student_data)
+head(Student_data, n=4)
+tail(Student_data)
+tail(Student_data,n=10)
+str(Student_data)
+dim(Student_data)
+length(Student_data)
+Student_data[10,]
+Student_data[1:4,]
+Student_data[1:4,2]
+Student_data[,4]
+Student_data[1:5,1:3]
+print(Student_data$STUDY_HRS)
+
+#Data Preprocessing
+
+summary(Student_data)
+
+
+barplot(table(Student_data$DROPOUT),
+        main="Student Dropout", col="green")
+
+barplot(table(Student_data$AGE),
+        main="Student Age", col="red")
+
+barplot(table(Student_data$GENDER),
+        main="Student Gender", col="blue")
+
+
+barplot(table(Student_data$HS_TYPE),
+        main="Student HS_Type", col="yellow")
+
+barplot(table(Student_data$SCHOLARSHIP),
+        main="Student Scholarship", col="brown")
+
+barplot(table(Student_data$WORK),
+        main="Student Work", col="black")
+
+barplot(table(Student_data$STUDY_HRS),
+        main="Student Study Hours", col="orange")
+
+barplot(table(Student_data$ READ_FREQ),
+        main="Student Read Frequency", col="green")
+
+barplot(table(Student_data$LISTENS),
+        main="Student Listens", col="yellow")
+
+#Attribute Selection
+Student_data = Student_data[,-c(1)]
+print(Student_data)
+dim(Student_data)
+
+# Data Normalization
+normalize <- function(x) {
+        return((x-min(x))/ (max(x) - min(x)))
+}
+Student_datan <- as.data.frame(lapply(Student_data[,c(1:29)],normalize))
+print(Student_datan)
+summary(Student_data)
+head(Student_data)
+head(Student_datan)
+summary(Student_datan)
+
+
+#Sampling of Datasets
+set.seed(1)
+ind <- sample(2, nrow(Student_datan), replace=TRUE, prob=c(0.8, 0.2))
+trainData <- Student_datan[ind==1,]
+testData <- Student_datan[ind==2,]
+
+
+print(trainData)
+print(testData)
+trainData = cbind(trainData, DROPOUT = Student_data[ind==1,30])
+trainData
+testData = cbind(testData, DROPOUT = Student_data[ind==2,30])
+testData
+
+
+# Multilinear model 
+model <- lm(DROPOUT  ~ ., data = trainData)
+# Show the model
+print(model)
+
+# Evaluate the Model with test data
+
+dim(testData)
+testPred <- predict(model, newdata = testData)
+print(testPred)
+
+mlrpredict <- ifelse(testPred >0.5,1,0)
+print(mlrpredict)
+testData$DROPOUT
+tab = table(Predicted = mlrpredict, Actual = testData$DROPOUT)
+print(tab)
+mlraccuracy = (sum(diag(tab)))/sum(tab)
+cat("Accuracy of MLR = ",round(100 *mlraccuracy),"%")
+
+
+
+#Predicting Student Drop Out Using Predictors
+
+New_Student <- read.csv("C:\\Program Files\\R\\R-3.3.2\\datasets\\student_dropoutpred.csv", header = TRUE)
+print(New_Student)
+New_Student = New_Student[,-c(1)]
+
+result <- predict(model,New_Student)
+mlrpredict <- ifelse(result >0.5,1,0)
+print(mlrpredict)
+
+
+
+#XGBOOST
+library(xgboost)
+library(dplyr)
+library(Matrix)
+
+Student_data <- read.csv("C:\\Program Files\\R\\R-3.3.2\\datasets\\student_dropout.csv", header = TRUE)
+print(Student_data)
+
+head(Student_data)
+head(Student_data, n=9)
+tail(Student_data)
+tail(Student_data, n=4)
+
+# Data Preprocessing
+Student_data = Student_data[,-c(1)]
+print(Student_data)
+
+# Data Sampling
+set.seed(1)
+
+ind <- sample(2, nrow(Student_data), replace=TRUE, prob=c(0.8, 0.2))
+train <- Student_data[ind==1,]
+test <- Student_data[ind==2,]
+print(train)
+head(train)
+tail(train)
+print(test)
+#Convert dataset into DMatrix format
+
+trainm <- train[,-30]
+trainm
+train_label <-train[,"DROPOUT"]
+train_label
+train_matrix <- xgb.DMatrix(data = as.matrix(trainm), label = train_label)
+train_matrix
+
+testm <- test[,-30]
+testm
+test_label <-test[,"DROPOUT"]
+test_label
+test_matrix <- xgb.DMatrix(data = as.matrix(testm), label = test_label)
+test_matrix
+
+#Parameters
+nc <- length(unique(train_label))
+nc
+xgb_params <- list("objective" = "multi:softmax",
+                   "eval_metric" = "error",
+                   "num_class"=nc)
+
+#XGBoost Model
+bst_model <- xgb.train(params = xgb_params,
+                       data = train_matrix,
+                       nrounds = 100)
+
+# Evaluate the Model with test data
+p<-predict(bst_model, newdata = test_matrix)
+p
+
+tab = table(predictions = p, Actual = test_label)
+
+print(tab)
+XGaccuracy = (sum(diag(tab)))/sum(tab)
+cat("Accuracy of XGBOOST = ",round(100 *XGaccuracy),"%")
+
+#Predicting Student Drop Out with Predictors
+
+New_Student <- read.csv("C:\\Program Files\\R\\R-3.3.2\\datasets\\student_dropoutpred.csv", header = TRUE)
+print(New_Student)
+New_Student = New_Student[,-c(1)]
+New_Student <- xgb.DMatrix(data = as.matrix(New_Student))
+#test_matrix
+result <- predict(bst_model,New_Student)
+print(result)
