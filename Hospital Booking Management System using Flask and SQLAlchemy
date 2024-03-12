@@ -1,0 +1,417 @@
+from flask import Flask, request, jsonify
+from flask_sqlalchemy import SQLAlchemy
+import jwt
+from datetime import datetime,timedelta
+
+
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:2829@localhost:3306/h_bookings'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = 'dfghbvcghgfdgb'
+db = SQLAlchemy(app)
+
+class Hospital(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100))
+    location = db.Column(db.String(200))
+    contact_no = db.Column(db.String(20))
+    email = db.Column(db.String(100))
+    password = db.Column(db.String(100))
+
+class Patient(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    hospital_id = db.Column(db.Integer, db.ForeignKey('hospital.id'))
+    name = db.Column(db.String(100))
+    dob = db.Column(db.String(100))
+    location = db.Column(db.String(200))
+    phone_no = db.Column(db.String(20))
+
+class Doctor(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    hospital_id = db.Column(db.Integer, db.ForeignKey('hospital.id'))
+    name = db.Column(db.String(100))
+    specialist = db.Column(db.String(100))
+    starting_time = db.Column(db.String(100))
+    ending_time = db.Column(db.String(100))
+    contact_no = db.Column(db.String(20))
+
+class Booking(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'))
+    doctor_id = db.Column(db.Integer, db.ForeignKey('doctor.id'))
+    date = db.Column(db.String(10))
+    time = db.Column(db.String(10))
+    token_no = db.Column(db.String(16))
+    appointment_status = db.Column(db.String(100))
+
+
+
+    # Hospital 
+
+    # to add details
+
+@app.route('/add_hospital', methods=['POST'])
+def add_hospital():
+    data = request.get_json()
+
+    name = data.get("name")
+    location = data.get("location")
+    contact_no = data.get("contact_no")
+    email = data.get("email")
+    password = data.get("password")
+    hospital = Hospital(name=name, location=location, contact_no=contact_no, email=email, password=password)
+    db.session.add(hospital)
+    db.session.commit()
+    return jsonify({"msg": "Hospital added successfully"})
+
+
+   # to get all
+
+@app.route('/getall_hospital', methods=['GET'])
+def getall_hospital():
+        all_hospital = Hospital.query.all()
+        print(all_hospital)
+        hospital_list = []
+        for i in all_hospital:
+            hospital_list.append({
+                'name': i.name,
+                'location': i.location,
+                'contact_no': i.contact_no,
+                'email': i.email,
+                'password' : i.password
+            })
+        return jsonify({'data': hospital_list})
+
+   # to get id
+
+@app.route('/getid_hospital/<int:id>',methods=['GET'])
+def getid_hospital(id):
+   hospital_id = Hospital.query.get(id)
+   return jsonify({
+        'name': hospital_id.name,
+        'location': hospital_id.location,
+        'contact_no': hospital_id.contact_no,
+        'email': hospital_id.email,
+        'password' : hospital_id.password
+   })
+   
+
+     # to update
+
+@app.route('/update_hospital/<int:id>', methods=['PUT'])
+def update_hospital(id):
+    data = request.get_json()
+    hospitalupdate = Hospital.query.get(id)
+
+    hospitalupdate.name = data.get('name',hospitalupdate.name)
+    hospitalupdate.location = data.get('location', hospitalupdate.location)
+    hospitalupdate.contact_no = data.get('contact_no',hospitalupdate.contact_no)
+    hospitalupdate.email = data.get('email',hospitalupdate.email)
+    hospitalupdate.password = data.get('password', hospitalupdate.password)
+
+    db.session.commit()
+    
+    return ({"msg": " Hospital successfully updated"})
+   
+   # to delete
+
+@app.route('/delete_hospital/<int:id>', methods=['DELETE'])
+def delete_hospital(id):
+    Hospital_id = Hospital.query.get(id)
+
+    db.session.delete(Hospital_id)
+    db.session.commit()
+    return jsonify({'msg': 'Hospital successfully deleted'})
+
+
+@app.route('/hospital_login', methods=['POST'])
+def login_id():
+        data = request.get_json()
+        email = data.get("email")
+        password = data.get("password")
+
+        hospital_login = Hospital.query.filter_by(email=email).first()
+        if not hospital_login:
+             return({"msg":"user not found"})
+        if hospital_login.password == password:
+             h_login = token(hospital_login)
+             print(h_login)
+             return ({"msg":"successfully login","token":h_login})
+            
+        else:
+             return ({"msg":"incorrect password"})
+
+
+# patient
+
+ # to add details
+
+@app.route('/add_patient', methods=['POST'])
+def add_patient():
+    data = request.get_json()
+    name = data.get("name")
+    hospital_id =data.get("hospital_id")
+    dob= data.get("dob")
+    location = data.get("location")
+    phone_no = data.get("phone_no")
+    patient = Patient(name=name,  hospital_id=hospital_id,dob = dob, location=location, phone_no=phone_no)
+    db.session.add(patient)
+    db.session.commit()
+    return jsonify({"msg": "patient details added successfully"})
+     
+
+         # to get all
+
+@app.route('/getall_patient', methods=['GET'])
+def getall_patient():
+        all_patient = Patient.query.all()
+        print(all_patient)
+        patient_list = []
+        for i in all_patient:
+            patient_list.append({
+                'name': i.name,
+                'dob': i.dob,
+                'location': i.location,
+                'phone_no': i.phone_no
+
+                
+            })
+        return jsonify({'data':patient_list})
+
+# to get id
+
+@app.route('/getid_patient/<int:id>',methods=['GET'])
+def getid_patient(id):
+   patient_id = Patient.query.get(id)
+   return jsonify({
+        'name': patient_id.name,
+        'dob': patient_id.dob,
+        'location': patient_id.location,
+        'phone_no': patient_id.phone_no
+        
+   })
+ # to update
+@app.route('/update_patient/<int:id>', methods=['PUT'])
+def update_patient(id):
+    data = request.get_json()
+    patientupdate = Patient.query.get(id)
+
+    patientupdate.name = data.get('name',patientupdate.name)
+    patientupdate.dob = data.get('dob', patientupdate.dob)
+    patientupdate.location = data.get('location',patientupdate.location)
+    patientupdate.phone_no = data.get('phone_no',patientupdate.phone_no)
+    
+
+    db.session.commit()
+    
+    return ({"msg": "patient details updated successfully"})
+
+
+# to delete
+
+@app.route('/delete_patient/<int:id>', methods=['DELETE'])
+def delete_patient(id):
+    Patient_id = Patient.query.get(id)
+
+    db.session.delete(Patient_id)
+    db.session.commit()
+    return jsonify({'msg': 'patient details deleted successfully'})
+
+
+#Doctor
+# to add details
+@app.route('/add_doctor', methods=['POST'])
+def add_doctor():
+    data = request.get_json()
+    name = data.get("name")
+    hospital_id = data.get("hospital_id")
+    specialist= data.get("specialist")
+    starting_time = data.get("starting_time")
+    ending_time= data.get("ending_time")
+    contact_no = data.get("contact_no")
+
+    hosp = Hospital.query.filter_by(id=hospital_id).first()
+
+    if not hosp:
+        return jsonify({"msg": "Hospital id is invalid"})
+    
+    doctor = Doctor(name=name, hospital_id = hospital_id,specialist = specialist, starting_time=starting_time, ending_time= ending_time,contact_no=contact_no)
+    db.session.add(doctor)
+    db.session.commit()
+    
+    return jsonify({"msg":"Doctor details added successfully"})
+# to get all
+@app.route('/getall_doctor', methods=['GET'])
+def getall_Doctor():
+        all_doctor = Doctor.query.all()
+        print(all_doctor)
+        doctor_list = []
+        for i in all_doctor:
+            doctor_list.append({
+                'id':i.id,
+                'hospital_id':i.hospital_id,
+                'name': i.name,
+                'specialist': i.specialist,
+                'starting_time': i.starting_time,
+                'ending_time': i.ending_time,
+                'contact_no': i.contact_no
+
+                
+            })
+        return jsonify({'data':doctor_list})
+
+# to get id
+
+@app.route('/getid_doctor/<int:id>',methods=['GET'])
+def getid_doctor(id):
+   doctor_id = Doctor.query.get(id)
+   return jsonify({
+        'name': doctor_id.name,
+        'specialist': doctor_id.specialist,
+        'starting_time': doctor_id.starting_time,
+        'ending_time': doctor_id.ending_time,
+        'contact_no': doctor_id.contact_no
+        
+   })
+ # to update
+@app.route('/update_doctor/<int:id>', methods=['PUT'])
+def update_doctor(id):
+    data = request.get_json()
+    doctorupdate = Doctor.query.get(id)
+
+    doctorupdate.name = data.get('name',doctorupdate.name)
+    doctorupdate.specialist = data.get('specialist', doctorupdate.specialist)
+    doctorupdate.starting_time = data.get('starting_time',doctorupdate.starting_time)
+    doctorupdate.ending_time = data.get('ending_time',doctorupdate.ending_time)
+    doctorupdate.contact_no = data.get('contact_no',doctorupdate.contact_no)
+    db.session.commit()
+    
+    return ({"msg": "doctor details updated successfully"})
+
+
+# to delete
+
+@app.route('/delete_doctor/<int:id>', methods=['DELETE'])
+def delete_doctor(id):
+    Doctor_id = Doctor.query.get(id)
+
+    db.session.delete(Doctor_id)
+    db.session.commit()
+    return jsonify({'msg': 'doctor details deleted successfully'})
+
+
+# Bookings
+# to add
+
+
+
+@app.route('/add_booking', methods=['POST'])
+def add_booking():
+    data = request.get_json()
+    patient_id = data.get("patient_id")
+    doctor_id = data.get("doctor_id")
+    date = data.get("date")
+    time = data.get("time")
+    token_no = 1
+    all_records = Booking.query.all()
+    all_records = len(all_records)
+    token_no = all_records +1
+    print(token_no)
+    date_bookings = Booking.query.filter_by(date=date).all()
+    existing_token = {booking.token_no for booking in date_bookings}
+
+    for token_no in range(1, len(date_bookings) + 2):
+        if str(token_no) not in existing_token:
+         break
+        else:
+    
+         token_no = len(date_bookings) + 1
+    appointment_status = data.get("appointment_status")
+    doctor = Doctor.query.get(doctor_id)
+    patient = Patient.query.get(patient_id)
+
+    if not patient:
+        return jsonify({"msg": "Patient not found"})
+    
+    
+
+    
+    if doctor and doctor.starting_time >= time <= doctor.ending_time:
+        booking = Booking(patient_id=patient_id, doctor_id=doctor_id, date=date, time=time, token_no=str(token_no), appointment_status=appointment_status)
+        db.session.add(booking)
+        db.session.commit()
+
+        return jsonify({'msg': 'Successfully added'})
+    else:
+        return jsonify({'msg': 'Doctor not available this time'})
+
+
+
+
+
+
+
+
+#to getall
+
+@app.route('/getall_booking', methods=['GET'])
+def getall_booking():
+    all_booking = Booking.query.all()
+    print(all_booking)
+    booking_list = []
+    for i in all_booking:
+        booking_list.append({
+            'appointment_status': i.appointment_status,
+            'date': i.date,
+            'time': i.time,
+            'token_no': i.token_no
+        })
+    return jsonify({'data': booking_list})
+
+
+@app.route('/getid_booking/<int:id>', methods=['GET'])
+def getid_booking(id):
+    booking = Booking.query.get(id)
+    
+    return jsonify({
+        'appointment_status': booking.appointment_status,
+        'date': booking.date,
+        'time': booking.time,
+        'token_no': booking.token_no
+    })
+
+# to update
+@app.route('/update_booking/<int:id>', methods=['PUT'])
+def update_booking(id):
+    data = request.get_json()
+    bookingupdate = Booking.query.get(id)
+
+    bookingupdate.name = data.get('name',bookingupdate.name)
+    
+
+    db.session.commit()
+    
+    return ({"msg": "booking details updated successfully"})
+
+# to delete
+@app.route('/delete_booking/<int:id>', methods=['DELETE'])
+def delete_booking(id):
+    Booking_id = Booking.query.get(id)
+
+    db.session.delete(Booking_id)
+    db.session.commit()
+    return jsonify({'msg': 'booking details deleted successfully'})
+
+def token(data):
+     tokens = jwt.encode({
+            'public_id': data.email,
+            'exp' : datetime.utcnow() + timedelta(minutes = 15)
+        }, app.config['SECRET_KEY'])
+     return tokens
+
+
+
+if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
+    app.run(debug=True)
