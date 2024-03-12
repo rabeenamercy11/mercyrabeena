@@ -1,0 +1,85 @@
+from datetime import datetime
+
+voter_list = [
+    {"name": "mercy", "DOB": "2001-04-09", "Location": "chinnathurai"},
+    {"name": "rabeena", "DOB": "2010-03-02", "Location": "thoothoor"},
+    {"name": "shilpa", "DOB": "2001-11-09", "Location": "poothurai"},
+    {"name": "jeni", "DOB": "2000-08-28", "Location": "chinnathurai"},
+    {"name": "reghan", "DOB": "2001-04-15", "Location": "poothurai"},
+    {"name": "retheesh", "DOB": "2008-05-21", "Location": "chinnathurai"},
+    {"name": "renu", "DOB": "2001-06-29", "Location": "thoothoor"},
+]
+booth = ["chinnathurai", "thoothoor", "poothurai"]
+
+parties_name = ["ADMK", "BJP", "CPI", "DMK", "TVK"]
+
+votes = {party: 0 for party in parties_name}
+
+
+class Vote:
+    def __init__(self):
+        self.menu()
+
+    def menu(self):
+        print("\nMain Menu:")
+        print("1. Vote")
+        print("2. Exit")
+        self.choice = int(input("Enter your choice: "))
+        if self.choice == 1:
+            self.cast_vote()
+        elif self.choice == 2:
+            self.exit()
+        else:
+            print("Invalid choice. Please enter a valid option.")
+            self.menu()
+
+    def check_booth(self, name):
+        voter_detail = next((i for i in voter_list 
+                             if i["name"] == name), None)
+
+        if voter_detail:
+            age = self.calculate_age(voter_detail.get("DOB"))
+            location = voter_detail.get("Location")
+
+            if age < 18:
+                print(f"Hi {name}, you are not eligible to vote. You are {age} years old.")
+                return False
+            elif location not in booth:
+                print(f"Sorry, {name}, the voting booth is not available at your address.")
+                return False
+            else:
+                print(f"Your booth {location} is available.")
+                return True
+        else:
+            print(f"No voter found with the name {name}.")
+            return False
+
+    def calculate_age(self, date_of_birth):
+        dob = datetime.strptime(date_of_birth, "%Y-%m-%d")
+        current_date = datetime.now()
+        age = current_date.year - dob.year - ((current_date.month, current_date.day) < (dob.month, dob.day))
+        return age
+
+    def cast_vote(self):
+        name = input("Enter your name: ")
+        is_booth_age_available = self.check_booth(name)
+        if not is_booth_age_available:
+            self.menu()
+
+        party = input("Enter the party you want to vote for (ADMK, BJP, CPI, DMK,TVK): ")
+        if party in parties_name:
+            votes[party] += 1
+            print(f"Your vote for {party} has been recorded.")
+        else:
+            print("Invalid party name. Please vote for one of the listed parties.")
+        self.menu()
+
+    def exit(self):
+        print("Exiting the voting system.")
+        print("\nTotal votes for each party:")
+        for party, vote_count in votes.items():
+            print(f"{party}: {vote_count}")
+
+
+Vote()
+
